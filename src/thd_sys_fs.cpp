@@ -24,7 +24,10 @@
 
 #include "thd_sys_fs.h"
 #include "thd_common.h"
+#include "thd_util.h"
 #include <stdlib.h>
+#include <errno.h>
+#include <limits.h>
 #include <vector>
 
 csys_fs::~csys_fs() {
@@ -155,7 +158,11 @@ int csys_fs::read(const std::string &path, int *ptr_val) {
 	int ret = ::pread(fd, str, sizeof(str) - 1, 0);
 	if (ret > 0) {
 		str[ret] = '\0';
-		*ptr_val = atoi(str);
+
+		if (parse_int_value(std::string(str), ptr_val, INT_MIN, INT_MAX) != 0) {
+			thd_log_error("sysfs parse failed for path: %s\n", p.c_str());
+			return -EINVAL;
+		}
 	} else
 		thd_log_info("sysfs read failed %s\n", p.c_str());
 
