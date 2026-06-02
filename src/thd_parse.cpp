@@ -122,38 +122,48 @@ int cthd_parse::parser_init(const std::string& config_file) {
 		}
 	}
 
-	struct stat file_stat;
+	int fd = open(xml_config_file, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+	if (fd < 0) {
+		if (errno == ELOOP) {
+			thd_log_warn("Config file %s is a symlink\n", xml_config_file);
+		} else {
+			thd_log_info("Could not open file %s: %s\n", xml_config_file, strerror(errno));
+		}
+		return THD_ERROR;
+	}
 
-	if (stat(xml_config_file, &file_stat) == -1) {
-		thd_log_info("Could not get file status for %s\n", xml_config_file);
+	struct stat file_stat;
+	if (fstat(fd, &file_stat) == -1) {
+		thd_log_warn("Could not stat opened file %s: %s\n", xml_config_file, strerror(errno));
+		close(fd);
 		return THD_ERROR;
 	}
 
 	// Make sure file is owned by root and not writable by group/others
-
 	if (file_stat.st_uid != 0) {
 		thd_log_info("Config file %s is not owned by root\n", xml_config_file);
+		close(fd);
 		return THD_ERROR;
 	}
 
 	if (file_stat.st_mode & (S_IWGRP | S_IWOTH)) {
 		thd_log_info("File %s is group, other writable\n", xml_config_file);
+		close(fd);
 		return THD_ERROR;
 	}
 
-	// Check if file is not a symbolic link
-
-	if (lstat(xml_config_file, &file_stat) == -1) {
-		return THD_ERROR;
-	}
-
-	if (S_ISLNK(file_stat.st_mode)) {
-		thd_log_info("Config file %s is a symbolic link\n", xml_config_file);
+	// Verify it's a regular file (not device, FIFO, etc.)
+	if (!S_ISREG(file_stat.st_mode)) {
+		thd_log_warn("Config file %s is not a regular file\n", xml_config_file);
+		close(fd);
 		return THD_ERROR;
 	}
 
 	thd_log_msg("Using config file %s\n", xml_config_file);
-	doc = xmlReadFile(xml_config_file, nullptr, 0);
+
+	// Read file using already-opened and validated file descriptor
+	doc = xmlReadFd(fd, xml_config_file, nullptr, 0);
+	close(fd);
 	if (doc == nullptr) {
 		thd_log_warn("error: could not parse file %s\n", xml_config_file);
 		return THD_ERROR;
