@@ -24,6 +24,7 @@
 
 #include "thd_zone_therm_sys_fs.h"
 #include "thd_engine.h"
+#include "thd_util.h"
 #include <stdlib.h>
 
 cthd_sysfs_zone::cthd_sysfs_zone(int count, std::string path) :
@@ -191,8 +192,14 @@ int cthd_sysfs_zone::read_cdev_trip_points() {
 					ptr += strlen("cooling_device");
 					thd_log_debug("symbolic name %s:%s\n", buf, ptr);
 					if (trip_cnt >= 0 && trip_cnt < trip_point_cnt) {
+						// Safe integer parsing for cooling device ID
+						int cdev_id;
+						if (parse_int_value(std::string(ptr), &cdev_id, 0, 1000) != 0) {
+							thd_log_debug("Invalid cooling device ID\n");
+							continue;
+						}
 						trip_points[trip_cnt].thd_trip_point_add_cdev_index(
-								atoi(ptr), cthd_trip_point::default_influence);
+								cdev_id, cthd_trip_point::default_influence);
 						zone_cdev_set_binded();
 					} else {
 						thd_log_debug("Invalid trip_cnt\n");
