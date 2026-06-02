@@ -1796,23 +1796,25 @@ struct itmt* cthd_gddv::find_itmt(const std::string& name) {
 	return nullptr;
 }
 
+#define MAX_PL_LIMIT	500000 // in mW
+
 int cthd_gddv::find_agressive_target() {
 	int max_pl1_max = 0;
 	int max_target_id = -1;
 
 	for (int i = 0; i < (int) targets.size(); i++) {
-		int argument;
-
 		if (targets[i].code != "PL1MAX" && targets[i].code != "PL1PowerLimit")
 			continue;
 
-		try {
-			argument = std::stoi(targets[i].argument, nullptr);
-		} catch (...) {
-			thd_log_info("Invalid target target:%s %s\n",
+		// Use utility function for validated parsing
+		// Value will be multiplied by 1000 in set_adaptive_target()
+		int argument;
+		if (parse_int_value(targets[i].argument, &argument, 0, MAX_PL_LIMIT) != 0) {
+			thd_log_warn("Invalid power limit for target:%s value:%s\n",
 					targets[i].code.c_str(), targets[i].argument.c_str());
 			continue;
 		}
+
 		thd_log_info("target:%s %d\n", targets[i].code.c_str(), argument);
 
 		if (max_pl1_max < argument) {
