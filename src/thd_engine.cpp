@@ -43,11 +43,11 @@
 #include "thd_zone_therm_sys_fs.h"
 #include "thd_zone_dynamic.h"
 #include "thd_cdev_gen_sysfs.h"
+#include "thd_util.h"
 #include "thd_int3400.h"
 #include "thd_platform.h"
 #include "thd_platform_intel.h"
 #include "thd_platform_arm.h"
-#include "thd_util.h"
 
 static void *cthd_engine_thread(void *arg);
 
@@ -671,9 +671,12 @@ void cthd_engine::takeover_thermal_control() {
 		while ((entry = readdir(dir)) != nullptr) {
 			if (!strncmp(entry->d_name, "thermal_zone",
 					strlen("thermal_zone"))) {
+				// Safe integer parsing for zone number
+				const char *num_str = entry->d_name + strlen("thermal_zone");
 				int i;
-
-				i = atoi(entry->d_name + strlen("thermal_zone"));
+				if (parse_int_value(std::string(num_str), &i, 0, 1000) != 0) {
+					continue;  // Invalid zone number, skip
+				}
 				std::ostringstream policy;
 				std::string curr_policy;
 				std::ostringstream type;
@@ -724,9 +727,12 @@ void cthd_engine::giveup_thermal_control() {
 		while ((entry = readdir(dir)) != nullptr) {
 			if (!strncmp(entry->d_name, "thermal_zone",
 					strlen("thermal_zone"))) {
+				// Safe integer parsing for zone number
+				const char *num_str = entry->d_name + strlen("thermal_zone");
 				int i;
-
-				i = atoi(entry->d_name + strlen("thermal_zone"));
+				if (parse_int_value(std::string(num_str), &i, 0, 1000) != 0) {
+					continue;  // Invalid zone number, skip
+				}
 				std::ostringstream policy;
 				std::ostringstream type;
 				std::string thermal_type;
