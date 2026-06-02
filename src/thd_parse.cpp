@@ -59,6 +59,21 @@ char *cthd_parse::char_trim(char *str) {
 	return str;
 }
 
+// Wrapper methods for XML parsing - delegate to utility functions
+int cthd_parse::parse_int_value(const char *str, int *result, int min_val, int max_val) {
+	if (!str || !result) {
+		return THD_ERROR;
+	}
+	return ::parse_int_value(std::string(str), result, min_val, max_val) == 0 ? THD_SUCCESS : THD_ERROR;
+}
+
+int cthd_parse::parse_double_value(const char *str, double *result, double min_val, double max_val) {
+	if (!str || !result) {
+		return THD_ERROR;
+	}
+	return ::parse_double_value(std::string(str), result, min_val, max_val) == 0 ? THD_SUCCESS : THD_ERROR;
+}
+
 cthd_parse::cthd_parse() :
 		matched_thermal_info_index(-1), doc(nullptr), root_element(nullptr), auto_config(
 				0) {
@@ -198,22 +213,37 @@ int cthd_parse::parse_new_trip_cdev(xmlNode * a_node, xmlDoc *doc,
 					trip_cdev->type.assign((const char*) tmp_value);
 					string_trim(trip_cdev->type);
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name, "influence")) {
-					trip_cdev->influence = atoi(tmp_value);
+					int val;
+					if (parse_int_value(tmp_value, &val, 0, 100) == THD_SUCCESS) {
+						trip_cdev->influence = val;
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name,
 						"SamplingPeriod")) {
-					trip_cdev->sampling_period = atoi(tmp_value);
+					int val;
+					if (parse_int_value(tmp_value, &val, 0, INT_MAX) == THD_SUCCESS) {
+						trip_cdev->sampling_period = val;
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name,
 						"TargetState")) {
-					trip_cdev->target_state = atoi(tmp_value);
-					trip_cdev->target_state_valid = 1;
+					int val;
+					if (parse_int_value(tmp_value, &val, 0, INT_MAX) == THD_SUCCESS) {
+						trip_cdev->target_state = val;
+						trip_cdev->target_state_valid = 1;
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name,
 						"TargetMinState")) {
-					trip_cdev->target_min_state = atoi(tmp_value);
-					trip_cdev->min_max_valid = 1;
+					int val;
+					if (parse_int_value(tmp_value, &val, 0, INT_MAX) == THD_SUCCESS) {
+						trip_cdev->target_min_state = val;
+						trip_cdev->min_max_valid = 1;
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name,
 						"TargetMaxState")) {
-					trip_cdev->target_max_state = atoi(tmp_value);
-					trip_cdev->min_max_valid = 1;
+					int val;
+					if (parse_int_value(tmp_value, &val, 0, INT_MAX) == THD_SUCCESS) {
+						trip_cdev->target_max_state = val;
+						trip_cdev->min_max_valid = 1;
+					}
 				} else if(!thd_strcasecmp_n((const char*) cur_node->name,
 						"PidControl")) {
 					pid_control_t pid_params;
@@ -231,6 +261,9 @@ int cthd_parse::parse_new_trip_cdev(xmlNode * a_node, xmlDoc *doc,
 
 	return THD_SUCCESS;
 }
+
+#define MIN_TEMP_LIMIT	0
+#define MAX_TEMP_LIMIT	200000
 
 int cthd_parse::parse_new_trip_point(xmlNode * a_node, xmlDoc *doc,
 		trip_point_t *trip_pt) {
@@ -252,12 +285,21 @@ int cthd_parse::parse_new_trip_point(xmlNode * a_node, xmlDoc *doc,
 			}
 
 			if (!thd_strcasecmp_n((const char*) cur_node->name, "Temperature")) {
-				trip_pt->temperature = atoi(tmp_value);
+				int val;
+				if (parse_int_value(tmp_value, &val, MIN_TEMP_LIMIT, MAX_TEMP_LIMIT) == THD_SUCCESS) {
+					trip_pt->temperature = val;
+				}
 			} else if (!thd_strcasecmp_n((const char*) cur_node->name,
 					"Power")) {
-				trip_pt->temperature = atoi(tmp_value);
+				int val;
+				if (parse_int_value(tmp_value, &val, 0, INT_MAX) == THD_SUCCESS) {
+					trip_pt->temperature = val;
+				}
 			} else if (!thd_strcasecmp_n((const char*) cur_node->name, "Hyst")) {
-				trip_pt->hyst = atoi(tmp_value);
+				int val;
+				if (parse_int_value(tmp_value, &val, 0, 50000) == THD_SUCCESS) {
+					trip_pt->hyst = val;
+				}
 			} else if (!thd_strcasecmp_n((const char*) cur_node->name,
 					"CoolingDevice")) {
 				trip_cdev.influence = 0;
@@ -352,11 +394,29 @@ int cthd_parse::parse_pid_values(xmlNode * a_node, xmlDoc *doc,
 					cur_node->xmlChildrenNode, 1);
 			if (tmp_value) {
 				if (!thd_strcasecmp_n((const char*) cur_node->name, "Kp")) {
-					pid_ptr->Kp = atof(tmp_value);
+					double val;
+
+					if (parse_double_value(tmp_value, &val, 0.0, 100.0) == THD_SUCCESS) {
+
+						pid_ptr->Kp = val;
+
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name, "Kd")) {
-					pid_ptr->Kd = atof(tmp_value);
+					double val;
+
+					if (parse_double_value(tmp_value, &val, 0.0, 100.0) == THD_SUCCESS) {
+
+						pid_ptr->Kd = val;
+
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name, "Ki")) {
-					pid_ptr->Ki = atof(tmp_value);
+					double val;
+
+					if (parse_double_value(tmp_value, &val, 0.0, 100.0) == THD_SUCCESS) {
+
+						pid_ptr->Ki = val;
+
+					}
 				}
 				xmlFree(tmp_value);
 			}
@@ -412,7 +472,13 @@ int cthd_parse::parse_new_cooling_dev(xmlNode * a_node, xmlDoc *doc,
 					cur_node->xmlChildrenNode, 1);
 			if (tmp_value) {
 				if (!thd_strcasecmp_n((const char *) cur_node->name, "Index")) {
-					cdev->index = atoi(tmp_value);
+					int val;
+
+					if (parse_int_value(tmp_value, &val, 0, INT_MAX) == THD_SUCCESS) {
+
+						cdev->index = val;
+
+					}
 				} else if (!thd_strcasecmp_n((const char *) cur_node->name, "Type")) {
 					cdev->type_string.assign((const char*) tmp_value);
 					string_trim(cdev->type_string);
@@ -422,21 +488,51 @@ int cthd_parse::parse_new_cooling_dev(xmlNode * a_node, xmlDoc *doc,
 					string_trim(cdev->path_str);
 				} else if (!thd_strcasecmp_n((const char *) cur_node->name, "MinState")) {
 					cdev->mask |= CDEV_DEF_BIT_MIN_STATE;
-					cdev->min_state = atoi(tmp_value);
+					int val;
+
+					if (parse_int_value(tmp_value, &val, 0, INT_MAX) == THD_SUCCESS) {
+
+						cdev->min_state = val;
+
+					}
 				} else if (!thd_strcasecmp_n((const char *) cur_node->name, "MaxState")) {
 					cdev->mask |= CDEV_DEF_BIT_MAX_STATE;
-					cdev->max_state = atoi(tmp_value);
+					int val;
+
+					if (parse_int_value(tmp_value, &val, 0, INT_MAX) == THD_SUCCESS) {
+
+						cdev->max_state = val;
+
+					}
 				} else if (!thd_strcasecmp_n((const char *) cur_node->name,
 						"IncDecStep")) {
 					cdev->mask |= CDEV_DEF_BIT_STEP;
-					cdev->inc_dec_step = atoi(tmp_value);
+					int val;
+
+					if (parse_int_value(tmp_value, &val, 0, INT_MAX) == THD_SUCCESS) {
+
+						cdev->inc_dec_step = val;
+
+					}
 				} else if (!thd_strcasecmp_n((const char *) cur_node->name, "ReadBack")) {
 					cdev->mask |= CDEV_DEF_BIT_READ_BACK;
-					cdev->read_back = atoi(tmp_value);
+					int val;
+
+					if (parse_int_value(tmp_value, &val, 0, 1) == THD_SUCCESS) {
+
+						cdev->read_back = val;
+
+					}
 				} else if (!thd_strcasecmp_n((const char *) cur_node->name,
 						"DebouncePeriod")) {
 					cdev->mask |= CDEV_DEF_BIT_DEBOUNCE_VAL;
-					cdev->debounce_interval = atoi(tmp_value);
+					int val;
+
+					if (parse_int_value(tmp_value, &val, 0, INT_MAX) == THD_SUCCESS) {
+
+						cdev->debounce_interval = val;
+
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name,
 						"PidControl")) {
 					cdev->mask |= CDEV_DEF_BIT_PID_PARAMS;
@@ -445,10 +541,13 @@ int cthd_parse::parse_new_cooling_dev(xmlNode * a_node, xmlDoc *doc,
 				} else if (!thd_strcasecmp_n((const char *) cur_node->name,
 						"AutoOffMode")) {
 					cdev->mask |= CDEV_DEF_BIT_AUTO_DOWN;
-					if (atoi(tmp_value))
-						cdev->auto_down_control = true;
-					else
-						cdev->auto_down_control = false;
+					int val;
+
+					if (parse_int_value(tmp_value, &val, 0, 1) == THD_SUCCESS) {
+
+						cdev->auto_down_control = (val != 0);
+
+					}
 				} else if (!thd_strcasecmp_n((const char *) cur_node->name,
 						"WritePrefix")){
 					cdev->mask |= CDEV_DEF_BIT_WRITE_PREFIX;
@@ -521,9 +620,21 @@ int cthd_parse::parse_new_sensor_link(xmlNode * a_node, xmlDoc *doc,
 					string_trim(info_ptr->name);
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name,
 						"Multiplier")) {
-					info_ptr->multiplier = atof(tmp_value);
+					double val;
+
+					if (parse_double_value(tmp_value, &val, -1000.0, 1000.0) == THD_SUCCESS) {
+
+						info_ptr->multiplier = val;
+
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name, "Offset")) {
-					info_ptr->offset = atof(tmp_value);
+					double val;
+
+					if (parse_double_value(tmp_value, &val, -1000.0, 1000.0) == THD_SUCCESS) {
+
+						info_ptr->offset = val;
+
+					}
 				}
 				xmlFree(tmp_value);
 			}
@@ -548,11 +659,29 @@ int cthd_parse::parse_new_virtual_sensor_target(xmlNode * a_node, xmlDoc *doc,
 					info_ptr->name.assign(tmp_value);
 					string_trim(info_ptr->name);
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name, "Coeff")) {
-					info_ptr->coeff = atof(tmp_value);
+					double val;
+
+					if (parse_double_value(tmp_value, &val, -1000.0, 1000.0) == THD_SUCCESS) {
+
+						info_ptr->coeff = val;
+
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name, "Offset")) {
-					info_ptr->offset = atof(tmp_value);
+					double val;
+
+					if (parse_double_value(tmp_value, &val, -1000.0, 1000.0) == THD_SUCCESS) {
+
+						info_ptr->offset = val;
+
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name, "PowerSensor")) {
-					info_ptr->power_sensor = atoi(tmp_value);
+					int val;
+
+					if (parse_int_value(tmp_value, &val, 0, 1) == THD_SUCCESS) {
+
+						info_ptr->power_sensor = val;
+
+					}
 				}
 				xmlFree(tmp_value);
 			}
@@ -574,9 +703,21 @@ int cthd_parse::parse_new_virtual_sensor_polling(xmlNode * a_node, xmlDoc *doc,
 					cur_node->xmlChildrenNode, 1);
 			if (tmp_value) {
 				if (!thd_strcasecmp_n((const char*) cur_node->name, "VirtualTemp")) {
-					info_ptr->virtual_temp = atoi(tmp_value);
+					int val;
+
+					if (parse_int_value(tmp_value, &val, 0, MAX_TEMP_LIMIT) == THD_SUCCESS) {
+
+						info_ptr->virtual_temp = val;
+
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name, "SamplePeriod")) {
-					info_ptr->sample_period = atoi(tmp_value);
+					int val;
+
+					if (parse_int_value(tmp_value, &val, 0, INT_MAX) == THD_SUCCESS) {
+
+						info_ptr->sample_period = val;
+
+					}
 				}
 				xmlFree(tmp_value);
 			}
@@ -606,10 +747,16 @@ int cthd_parse::parse_new_sensor(xmlNode * a_node, xmlDoc *doc,
 					string_trim(info_ptr->path);
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name,
 						"AsyncCapable")) {
-					info_ptr->async_capable = atoi(tmp_value);
-					info_ptr->mask |= SENSOR_DEF_BIT_ASYNC_CAPABLE;
+					int val;
+					if (parse_int_value(tmp_value, &val, 0, 1) == THD_SUCCESS) {
+						info_ptr->async_capable = val;
+						info_ptr->mask |= SENSOR_DEF_BIT_ASYNC_CAPABLE;
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name, "Virtual")) {
-					info_ptr->virtual_sensor = atoi(tmp_value);
+					int val;
+					if (parse_int_value(tmp_value, &val, 0, 1) == THD_SUCCESS) {
+						info_ptr->virtual_sensor = val;
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name,
 						"SensorLink")) {
 					parse_new_sensor_link(cur_node->children, doc,
@@ -721,7 +868,13 @@ int cthd_parse::parse_new_platform_info(xmlNode * a_node, xmlDoc *doc,
 				parse_cooling_devs(cur_node->children, doc, info_ptr);
 			} else if (!thd_strcasecmp_n((const char*) cur_node->name,
 				"PollingInterval")) {
-				info_ptr->polling_interval = atoi(tmp_value);
+				int val;
+
+				if (parse_int_value(tmp_value, &val, 0, INT_MAX) == THD_SUCCESS) {
+
+					info_ptr->polling_interval = val;
+
+				}
 			} else if (!thd_strcasecmp_n((const char*) cur_node->name, "PPCC")) {
 				parse_ppcc(cur_node->children, doc, &info_ptr->ppcc);
 				info_ptr->ppcc.valid = 1;
@@ -761,6 +914,9 @@ int cthd_parse::parse_new_platform(xmlNode * a_node, xmlDoc *doc,
 	return THD_SUCCESS;
 }
 
+#define MAX_POWER_LIMIT 5000000
+#define MAX_TIME_WINDOW 5000000
+
 int cthd_parse::parse_ppcc(xmlNode * a_node, xmlDoc *doc, ppcc_t *ppcc) {
 	xmlNode *cur_node = nullptr;
 	char *tmp_value;
@@ -773,19 +929,37 @@ int cthd_parse::parse_ppcc(xmlNode * a_node, xmlDoc *doc, ppcc_t *ppcc) {
 			if (tmp_value) {
 				if (!thd_strcasecmp_n((const char*) cur_node->name,
 						"PowerLimitMinimum")) {
-					ppcc->power_limit_min = atof(tmp_value);
+					int val;
+
+					if (parse_int_value(tmp_value, &val, 0, MAX_POWER_LIMIT) == THD_SUCCESS) {
+						ppcc->power_limit_min = val;
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name,
 						"PowerLimitMaximum")) {
-					ppcc->power_limit_max = atof(tmp_value);
+					int val;
+
+					if (parse_int_value(tmp_value, &val, 0, MAX_POWER_LIMIT) == THD_SUCCESS) {
+						ppcc->power_limit_max = val;
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name,
 						"TimeWindowMinimum")) {
-					ppcc->time_wind_min = atof(tmp_value);
+					int val;
+
+					if (parse_int_value(tmp_value, &val, 0, MAX_TIME_WINDOW) == THD_SUCCESS) {
+						ppcc->time_wind_min = val;
+					}
 				} else if (!thd_strcasecmp_n((const char*) cur_node->name,
 						"TimeWindowMaximum")) {
-					ppcc->time_wind_max = atof(tmp_value);
-				} else if (!thd_strcasecmp_n((const char*) cur_node->name,
-						"StepSize")) {
-					ppcc->step_size = atof(tmp_value);
+					int val;
+					if (parse_int_value(tmp_value, &val, 0, MAX_TIME_WINDOW) == THD_SUCCESS) {
+						ppcc->time_wind_max = val;
+					}
+				} else if (!thd_strcasecmp_n((const char*) cur_node->name, "StepSize")) {
+					int val;
+
+					if (parse_int_value(tmp_value, &val, 0, MAX_POWER_LIMIT) == THD_SUCCESS) {
+						ppcc->step_size = val;
+					}
 				}
 				xmlFree(tmp_value);
 			}

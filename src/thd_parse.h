@@ -216,6 +216,8 @@ private:
 
 	void string_trim(std::string &str);
 	char *char_trim(char *trim);
+	int parse_int_value(const char *str, int *result, int min_val, int max_val);
+	int parse_double_value(const char *str, double *result, double min_val, double max_val);
 	bool match_product_sku(int index);
 
 public:
