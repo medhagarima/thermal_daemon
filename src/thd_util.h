@@ -36,4 +36,12 @@ size_t thd_cmp_len(const char *param1, const char *param2);
 int thd_strcmp_n(const char *param1, const char *param2);
 int thd_strcasecmp_n(const char *param1, const char *param2);
 
+// Safe integer parsing with validation
+// Returns 0 on success, -1 on error
+int parse_int_value(const std::string &str, int *result, int min_val, int max_val);
+
+// Safe double parsing with validation
+// Returns 0 on success, -1 on error
+int parse_double_value(const std::string &str, double *result, double min_val, double max_val);
+
 #endif /* THD_UTIL_H_ */

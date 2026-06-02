@@ -23,6 +23,10 @@
  */
 
 #include "thd_util.h"
+#include "thermald.h"
+#include <cerrno>
+#include <cstdlib>
+#include <climits>
 
 bool starts_with(const std::string& s, const char *prefix)
 {
@@ -64,4 +68,76 @@ int thd_strcasecmp_n(const char *param1, const char *param2) {
 		param2 = "";
 
 	return strncasecmp(param1, param2, thd_cmp_len(param1, param2));
+}
+
+// Safe integer parsing with validation
+int parse_int_value(const std::string &str, int *result, int min_val, int max_val) {
+	if (str.empty() || !result) {
+		return -1;
+	}
+
+	char *endptr;
+	errno = 0;
+	long val = strtol(str.c_str(), &endptr, 10);
+
+	// Check for conversion errors
+	if (errno == ERANGE || endptr == str.c_str()) {
+		thd_log_warn("Invalid integer value: '%s'\n", str.c_str());
+		return -1;
+	}
+
+	// Allow trailing whitespace but not other garbage
+	while (*endptr == ' ' || *endptr == '\t' || *endptr == '\n') {
+		endptr++;
+	}
+	if (*endptr != '\0') {
+		thd_log_warn("Invalid integer format: '%s'\n", str.c_str());
+		return -1;
+	}
+
+	// Check range
+	if (val < min_val || val > max_val) {
+		thd_log_warn("Integer value %ld out of range [%d, %d]: '%s'\n",
+				val, min_val, max_val, str.c_str());
+		return -1;
+	}
+
+	*result = (int)val;
+	return 0;
+}
+
+// Safe double parsing with validation
+int parse_double_value(const std::string &str, double *result, double min_val, double max_val) {
+	if (str.empty() || !result) {
+		return -1;
+	}
+
+	char *endptr;
+	errno = 0;
+	double val = strtod(str.c_str(), &endptr);
+
+	// Check for conversion errors
+	if (errno == ERANGE || endptr == str.c_str()) {
+		thd_log_warn("Invalid floating point value: '%s'\n", str.c_str());
+		return -1;
+	}
+
+	// Allow trailing whitespace but not other garbage
+	while (*endptr == ' ' || *endptr == '\t' || *endptr == '\n') {
+		endptr++;
+	}
+	if (*endptr != '\0') {
+		thd_log_warn("Invalid floating point format: '%s'\n", str.c_str());
+		return -1;
+	}
+
+	// Check range
+	if (val < min_val || val > max_val) {
+		thd_log_warn("Floating point value %f out of range [%f, %f]: '%s'\n",
+				val, min_val, max_val, str.c_str());
+		return -1;
+	}
+
+	*result = val;
+	return 0;
 }
