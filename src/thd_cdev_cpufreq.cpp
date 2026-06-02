@@ -44,7 +44,15 @@ int cthd_cdev_cpufreq::init() {
 		if (token1.empty())
 			return THD_ERROR;
 
-		std::istringstream(token1) >> cpu_start_index;
+		std::istringstream iss1(token1);
+		if (!(iss1 >> cpu_start_index) || !iss1.eof()) {
+			thd_log_warn("Invalid CPU start index format\n");
+			return THD_ERROR;
+		}
+		if (cpu_start_index < 0 || cpu_start_index > 63) {
+			thd_log_warn("CPU start index out of range: %d\n", cpu_start_index);
+			return THD_ERROR;
+		}
 		if ((p1 + 1) >= count_str.size())
 			return THD_ERROR;
 
@@ -89,17 +97,17 @@ int cthd_cdev_cpufreq::init() {
 	// Check scaling max frequency and min frequency
 	// Remove frequencies above and below this in the freq list
 	// The available list contains these frequencies even if they are not allowed
-	unsigned int scaling_min_frequency = 0;
-	unsigned int scaling_max_frequency = 0;
+	int scaling_min_frequency = 0;
+	int scaling_max_frequency = 0;
 	for (int i = cpu_start_index; i <= cpu_end_index; ++i) {
 		std::ostringstream str;
-		unsigned int freq_int;
+		int freq_int;
 
 		str << "cpu" << i << "/cpufreq/scaling_min_freq";
 		if (cdev_sysfs.exists(str.str())) {
 			int ret;
 
-			ret = cdev_sysfs.read(str.str(), reinterpret_cast<int*>(&freq_int));
+			ret = cdev_sysfs.read(str.str(), &freq_int);
 			if (ret < 0 || scaling_min_frequency == 0 || freq_int < scaling_min_frequency)
 				scaling_min_frequency = freq_int;
 		}
@@ -107,13 +115,13 @@ int cthd_cdev_cpufreq::init() {
 
 	for (int i = cpu_start_index; i <= cpu_end_index; ++i) {
 		std::ostringstream str;
-		unsigned int freq_int;
+		int freq_int;
 
 		str << "cpu" << i << "/cpufreq/scaling_max_freq";
 		if (cdev_sysfs.exists(str.str())) {
 			int ret;
 
-			ret = cdev_sysfs.read(str.str(), reinterpret_cast<int*>(&freq_int));
+			ret = cdev_sysfs.read(str.str(), &freq_int);
 			if (ret < 0 || scaling_max_frequency == 0 || freq_int > scaling_max_frequency)
 				scaling_max_frequency = freq_int;
 		}
@@ -125,8 +133,12 @@ int cthd_cdev_cpufreq::init() {
 	for (unsigned int i = 0; i < _cpufreqs.size(); ++i) {
 		thd_log_debug("cpu freq Add %d: %s\n", i, _cpufreqs[i].c_str());
 
-		unsigned int freq_int;
-		std::istringstream(_cpufreqs[i]) >> freq_int;
+		int freq_int;
+		std::istringstream iss(_cpufreqs[i]);
+		if (!(iss >> freq_int) || !iss.eof()) {
+			thd_log_warn("Invalid frequency format: %s\n", _cpufreqs[i].c_str());
+			continue;
+		}
 
 		if (freq_int >= scaling_min_frequency
 				&& freq_int <= scaling_max_frequency) {
