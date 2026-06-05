@@ -57,6 +57,7 @@ bool workaround_enabled = false;
 bool disable_active_power = false;
 bool ignore_critical = false;
 bool power_floor_enable = false;
+bool adaptive_perf_enable = false;
 
 static int pid_file_handle;
 
